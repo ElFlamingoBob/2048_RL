@@ -45,11 +45,11 @@ class Model:
 	def __init__(self):
 		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 		self.memory = ReplayMemory(300000)
-		self.batch_size = 64
+		self.batch_size = 128
 		self.gamma = 0.99
 		self.epsilon_start = 0.9
 		self.epsilon_end = 0.01
-		self.epsilon_decay = 65000
+		self.epsilon_decay = 50000
 		self.policy_net = CDQN().to(self.device)
 		self.target_net = CDQN().to(self.device)
 		self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=0.001)
@@ -112,6 +112,8 @@ class Model:
 		loss.backward()
 		torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 100)
 		self.optimizer.step()
+
+		return loss.item()
 
 	def soft_update_target_net(self, tau=0.005):
 		target_net_state_dict = self.target_net.state_dict()
