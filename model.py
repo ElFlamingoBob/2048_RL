@@ -45,18 +45,18 @@ class Model:
 	def __init__(self):
 		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 		self.memory = ReplayMemory(300000)
-		self.batch_size = 128
+		self.batch_size = 64
 		self.gamma = 0.99
 		self.epsilon_start = 0.9
 		self.epsilon_end = 0.01
-		self.epsilon_decay = 50000
+		self.epsilon_decay = 125000
 		self.policy_net = CDQN().to(self.device)
 		self.target_net = CDQN().to(self.device)
-		self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=0.001)
+		self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=0.0005)
 
 		self.steps_done = 0
 
-	def select_action(self, state, training=False):
+	def select_action(self, state, is_illegal_move, training=False):
 
 		if training:
 			sample = random.random()
@@ -66,12 +66,21 @@ class Model:
 
 			if sample > epsilon_threshold:
 				with torch.no_grad():
-					return self.policy_net(state).max(1)[1].view(1, 1)
+					output = self.policy_net(state).detach().cpu().numpy()[0]
+					for i in range(4):
+						output[i] = -math.inf if is_illegal_move[i] == 0 else output[i]
+					return output.argmax()
 			else:
-				return torch.tensor([[random.randrange(4)]], device=self.device, dtype=torch.long)
+				
+				return torch.tensor([[random.choice([i for i in range(4) if is_illegal_move[i] == 1])]], device=self.device, dtype=torch.long)
 		else:
 			with torch.no_grad():
-				return self.policy_net(state).max(1)[1].view(1, 1)
+				# output = self.policy_net(state).max(1)[1].view(1, 1)
+				output = self.policy_net(state).detach().cpu().numpy()[0]
+				for i in range(4):
+					output[i] = -math.inf if is_illegal_move[i] == 0 else output[i]
+				# print(f"Output: {output}, Legal Moves: {is_illegal_move}")
+				return output.argmax()
 
 	def optimize_model(self):
 		if len(self.memory) < self.batch_size:
