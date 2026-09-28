@@ -10,9 +10,9 @@ env = gym.make("gymnasium_2048:gymnasium_2048/TwentyFortyEight-v0", size=4, max_
 
 model = Model()
 
-# model.load_model("model_10k_end.pth")
+model.load_model("_model_5k_end.pth")
 
-episodes = 5000
+episodes = 2000
 
 loss_not_improving_count = 0
 last_loss = float('inf')
@@ -95,7 +95,7 @@ for episode in range(episodes):
 	rewards.clear()
 
 	if episode % 1000 == 0 and episode > 0:
-		torch.save(model.policy_net.state_dict(), f"_model_{episode}.pth")
+		torch.save(model.policy_net.state_dict(), f"__model_{episode}_ft.pth")
 
 	while True:
 		state = torch.tensor(observation, dtype=torch.float32, device=model.device).permute(2, 0, 1).unsqueeze(0)
@@ -105,15 +105,15 @@ for episode in range(episodes):
 
 		reward = float(reward)
 		if reward > 0.0:
-			reward = math.log2(reward) * 1.3
+			reward = math.log2(reward) * 1.5
 
 		if last_move == action.item():
 			same_move_count += 1
 		else:
 			same_move_count = 0
 
-		if same_move_count >= 10:
-			reward = -1.0
+		# if same_move_count >= 10:
+		# 	reward = -1.0
 
 		last_move = action.item()
 		actions[int(action.item())] += 1
@@ -127,7 +127,7 @@ for episode in range(episodes):
 			additive = 0.0
 			for i in range(observation.shape[1]):
 				for j in range(observation.shape[0]):
-					additive += 0.6 if observation[i][j][0] == 1 else 0
+					additive += 0.8 if observation[i][j][0] == 1 else 0
 			additive = round(additive, 2)
 			reward  = float(reward) + additive if float(reward) > 0 else float(reward)
 			reward += max_in_corners(info["board"]) if float(reward) > 0 else 0
@@ -173,21 +173,21 @@ plt.plot(losses)
 plt.xlabel("Episode")
 plt.ylabel("Loss")
 plt.title("Training Loss")
-plt.savefig("plots/training_loss_ft.png")
+plt.savefig("plots/training_loss_ft2.png")
 plt.close()
 
 plt.plot(rewards_means)
 plt.xlabel("Episode")
 plt.ylabel("Average Reward")
 plt.title("Average Reward per Episode")
-plt.savefig("plots/average_reward_ft.png")
+plt.savefig("plots/average_reward_ft2.png")
 plt.close()
 
 plt.plot(illegal_moves)
 plt.xlabel("Episode")
 plt.ylabel("Illegal Moves")
 plt.title("Illegal Moves per Episode")
-plt.savefig("plots/illegal_moves_ft.png")
+plt.savefig("plots/illegal_moves_ft2.png")
 plt.close()
 
 plt.plot(actions_in_time)
@@ -195,13 +195,13 @@ plt.xlabel("Episode (every 100 episodes)")
 plt.ylabel("Action Distribution")
 plt.title("Action Distribution Over Time")
 plt.legend(["Up", "Down", "Left", "Right"])
-plt.savefig("plots/action_distribution_ft.png")
+plt.savefig("plots/action_distribution_ft2.png")
 plt.close()
 
-model.save_model("_model_5k_end.pth")
+model.save_model("__model_7k_end_ft.pth")
 end_time = time.time()
 
-print(f"Training completed in {round(end_time - start_time, 2)} seconds. Model saved as '_model_5k_end.pth'. (steps taken: {steps})")
+print(f"Training completed in {round(end_time - start_time, 2)} seconds. Model saved as '__model_7k_end.pth'. (steps taken: {steps})")
 print(f"Action distribution: Up: {actions[0]}, Down: {actions[1]}, Left: {actions[2]}, Right: {actions[3]}")
 
 

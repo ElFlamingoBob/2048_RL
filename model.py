@@ -47,7 +47,7 @@ class Model:
 		self.memory = ReplayMemory(300000)
 		self.batch_size = 64
 		self.gamma = 0.99
-		self.epsilon_start = 0.9
+		self.epsilon_start = 0.04
 		self.epsilon_end = 0.01
 		self.epsilon_decay = 125000
 		self.policy_net = CDQN().to(self.device)

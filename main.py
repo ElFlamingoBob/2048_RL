@@ -10,13 +10,18 @@ import torch
 
 def main():
 
+	# env = gym.make("gymnasium_2048:gymnasium_2048/TwentyFortyEight-v0", size=4, max_pow=16, render_mode="human")  # Create the 2048 environment with specified parameters
 	env = gym.make("gymnasium_2048:gymnasium_2048/TwentyFortyEight-v0", size=4, max_pow=16)  # Create the 2048 environment with specified parameters
 
 	model = Model()
-	model.load_model("_model_5k_end.pth")
+	model.load_model("__model_7k_end_ft.pth")
+	# model.load_model("model_10k_end.pth")
 	max_score = 0
 
-	for _ in range(100):
+	score_repartion = [0] * 17
+	number_of_games = 1000
+
+	for _ in range(number_of_games):
 
 		observation, info = env.reset()
 		terminated, truncated = False, False
@@ -58,15 +63,20 @@ def main():
 		
 		
 		score = max([int(value) for row in grid for value in row])
-		print(2 ** (score - 1))
+		print(2 ** (score))
 
 		if score > max_score:
 			max_score = score
+
+		score_repartion[score] += 1
 
 		# input("Press Enter to continue...")
 
 	env.close() 
 
-	print(f"Max Score: {2 ** (max_score - 1)}")
+	print(f"Max Score: {2 ** (max_score)}")
+	for i in range(len(score_repartion)):
+		if score_repartion[i] > 0:
+			print(f"Score {2 ** (i)}: {score_repartion[i] / number_of_games * 100:.2f}%")
 
 main()
