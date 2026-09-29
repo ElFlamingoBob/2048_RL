@@ -3,8 +3,8 @@ import time
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 import gymnasium as gym
-from src.model import Model
-from src.resnet_model import ResNetModel
+from model import Model
+from resnet_model import ResNetModel
 import torch
 
 
