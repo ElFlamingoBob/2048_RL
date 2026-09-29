@@ -14,12 +14,13 @@ def main():
 	env = gym.make("gymnasium_2048:gymnasium_2048/TwentyFortyEight-v0", size=4, max_pow=16)  # Create the 2048 environment with specified parameters
 
 	model = Model()
-	model.load_model("__model_7k_end_ft.pth")
-	# model.load_model("model_10k_end.pth")
+	# model.load_model("__model_7k_end_ft.pth")
+	# model.load_model("__model_10k_end_ft.pth")
+	model.load_model("cdqn_10k.pth")
 	max_score = 0
 
 	score_repartion = [0] * 17
-	number_of_games = 1000
+	number_of_games = 500
 
 	for _ in range(number_of_games):
 
@@ -63,7 +64,7 @@ def main():
 		
 		
 		score = max([int(value) for row in grid for value in row])
-		print(2 ** (score))
+		# print(2 ** (score))
 
 		if score > max_score:
 			max_score = score

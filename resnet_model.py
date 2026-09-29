@@ -24,21 +24,59 @@ class ReplayMemory(object):
 	def __len__(self):
 		return len(self.memory)
 
-class CDQN(nn.Module):
+
+class ResidualBlock(nn.Module):
 	def __init__(self):
-		super(CDQN, self).__init__()
-		self.layer1 = nn.Conv2d(16, 128, kernel_size=2, stride=1, padding=0)
-		self.layer2 = nn.Conv2d(128, 128, kernel_size=2, stride=1, padding=0)
-		self.layer3 = nn.Flatten()
-		self.layer4 = nn.Linear(512, 256)
-		self.layer5 = nn.Linear(256, 4)
+		super(ResidualBlock, self).__init__()
+		self.conv1 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
+		self.bn1 = nn.BatchNorm2d(128)
+		self.relu = nn.ReLU(inplace=True)
+		self.conv2 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
+		self.bn2 = nn.BatchNorm2d(128)
 
 	def forward(self, x):
-		x = torch.relu(self.layer1(x))
-		x = torch.relu(self.layer2(x))
-		x = self.layer3(x)
-		x = torch.relu(self.layer4(x))
-		return self.layer5(x)
+		resisual = x
+
+		out = self.conv1(x)
+		out = self.bn1(out)
+		out = self.relu(out)
+
+		out = self.conv2(out)
+		out = self.bn2(out)
+
+		out += resisual
+		out = self.relu(out)
+
+		return out
+
+class ResNet(nn.Module):
+	def __init__(self):
+		super(ResNet, self).__init__()
+		self.stem = nn.Sequential(
+			nn.Conv2d(16, 128, kernel_size=3, padding=1, stride = 1),
+			nn.BatchNorm2d(128),
+			nn.ReLU(inplace=True)
+		)
+
+		blocks = []
+		for _ in range(4):
+			blocks.append(ResidualBlock())
+		self.residual_blocks = nn.Sequential(*blocks)
+
+		self.flatten = nn.Flatten()
+		self.fc1 = nn.Linear(128 * 4 * 4, 256)
+		self.relu = nn.ReLU(inplace=True)
+		self.fc2 = nn.Linear(256, 4)
+
+	def forward(self, x):
+		x = self.stem(x)
+		x = self.residual_blocks(x)
+		x = self.flatten(x)
+		x = self.fc1(x)
+		x = self.relu(x)
+		x = self.fc2(x)
+		return x
+		
 
 
 class Model:
@@ -50,14 +88,14 @@ class Model:
 		self.epsilon_start = 0.9
 		self.epsilon_end = 0.01
 		self.epsilon_decay = 300000
-		self.policy_net = CDQN().to(self.device)
-		self.target_net = CDQN().to(self.device)
+		self.policy_net = ResNet().to(self.device)
+		self.target_net = ResNet().to(self.device)
 		self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=0.0005)
 
 		self.steps_done = 0
 
 	def select_action(self, state, is_illegal_move, training=False):
-
+		self.policy_net.eval()
 		if training:
 			sample = random.random()
 			epsilon_threshold = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
@@ -71,7 +109,6 @@ class Model:
 						output[i] = -math.inf if is_illegal_move[i] == 0 else output[i]
 					return output.argmax()
 			else:
-				
 				return torch.tensor([[random.choice([i for i in range(4) if is_illegal_move[i] == 1])]], device=self.device, dtype=torch.long)
 		else:
 			with torch.no_grad():
@@ -83,6 +120,7 @@ class Model:
 				return output.argmax()
 
 	def optimize_model(self):
+		self.policy_net.train()
 		if len(self.memory) < self.batch_size:
 			return
 		transitions = self.memory.sample(self.batch_size)
@@ -112,8 +150,7 @@ class Model:
 			target_q_values[~next_mask_batch] = -math.inf
 			next_state_values[non_final_mask] = target_q_values.max(1).values
 
-		expected_state_action_values = \
-			(next_state_values * self.gamma) + reward_batch
+		expected_state_action_values = (next_state_values * self.gamma) + reward_batch
 
 		criterion = nn.SmoothL1Loss()
 		loss = criterion(state_action_values,

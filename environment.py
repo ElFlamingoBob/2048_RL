@@ -10,9 +10,9 @@ env = gym.make("gymnasium_2048:gymnasium_2048/TwentyFortyEight-v0", size=4, max_
 
 model = Model()
 
-model.load_model("_model_5k_end.pth")
+# model.load_model("10k_base.pth")
 
-episodes = 2000
+episodes = 10000
 
 loss_not_improving_count = 0
 last_loss = float('inf')
@@ -94,23 +94,26 @@ for episode in range(episodes):
 	same_move_count = 0
 	rewards.clear()
 
+	legal_moves = is_illegal_move(info["board"])
+
 	if episode % 1000 == 0 and episode > 0:
-		torch.save(model.policy_net.state_dict(), f"__model_{episode}_ft.pth")
+		torch.save(model.policy_net.state_dict(), f"cdqn_{episode / 1000}.pth")
 
 	while True:
 		state = torch.tensor(observation, dtype=torch.float32, device=model.device).permute(2, 0, 1).unsqueeze(0)
-		action = model.select_action(state, is_illegal_move(info["board"]), training=True)
+		action = model.select_action(state, legal_moves, training=True)
 		action = torch.tensor([[action]], device=model.device, dtype=torch.long)
 		observation, reward, terminated, truncated, info = env.step(action.item())
+		legal_moves = is_illegal_move(info["board"])
 
 		reward = float(reward)
 		if reward > 0.0:
 			reward = math.log2(reward) * 1.5
 
-		if last_move == action.item():
-			same_move_count += 1
-		else:
-			same_move_count = 0
+		# if last_move == action.item():
+		# 	same_move_count += 1
+		# else:
+		# 	same_move_count = 0
 
 		# if same_move_count >= 10:
 		# 	reward = -1.0
@@ -118,19 +121,14 @@ for episode in range(episodes):
 		last_move = action.item()
 		actions[int(action.item())] += 1
 		steps += 1
-		if info.get("is_legal") is False:
-			illegal_move_count += 1
-			reward = -10.0
-			terminated = True
-			print(f"Illegal move attempted. Assigning penalty. (Action: {action.item()})")
-		else:
-			additive = 0.0
-			for i in range(observation.shape[1]):
-				for j in range(observation.shape[0]):
-					additive += 0.8 if observation[i][j][0] == 1 else 0
-			additive = round(additive, 2)
-			reward  = float(reward) + additive if float(reward) > 0 else float(reward)
-			reward += max_in_corners(info["board"]) if float(reward) > 0 else 0
+	
+		additive = 0.0
+		for i in range(observation.shape[1]):
+			for j in range(observation.shape[0]):
+				additive += 0.7 if observation[i][j][0] == 1 else 0
+		additive = round(additive, 2)
+		reward = float(reward) + additive if float(reward) > 0 else float(reward)
+		reward += max_in_corners(info["board"]) if float(reward) > 0 else 0
 
 		rewards.append(reward)
 
@@ -138,9 +136,10 @@ for episode in range(episodes):
 		# print(reward)
 
 		next_state = torch.tensor(observation, dtype=torch.float32, device=model.device).permute(2, 0, 1).unsqueeze(0) if not terminated else None
+		next_mask = torch.tensor([legal_moves], dtype=torch.bool, device=model.device) if not terminated else None
 		ts_reward = torch.tensor([reward], dtype=torch.float32, device=model.device)
 
-		model.memory.push(state, action, next_state, ts_reward)
+		model.memory.push(state, action, next_state, ts_reward, next_mask)
 		state = next_state
 		loss = model.optimize_model()
 
@@ -173,21 +172,21 @@ plt.plot(losses)
 plt.xlabel("Episode")
 plt.ylabel("Loss")
 plt.title("Training Loss")
-plt.savefig("plots/training_loss_ft2.png")
+plt.savefig("plots/training_loss_cdqn.png")
 plt.close()
 
 plt.plot(rewards_means)
 plt.xlabel("Episode")
 plt.ylabel("Average Reward")
 plt.title("Average Reward per Episode")
-plt.savefig("plots/average_reward_ft2.png")
+plt.savefig("plots/average_reward_cdqn.png")
 plt.close()
 
 plt.plot(illegal_moves)
 plt.xlabel("Episode")
 plt.ylabel("Illegal Moves")
 plt.title("Illegal Moves per Episode")
-plt.savefig("plots/illegal_moves_ft2.png")
+plt.savefig("plots/illegal_moves_cdqn.png")
 plt.close()
 
 plt.plot(actions_in_time)
@@ -195,13 +194,13 @@ plt.xlabel("Episode (every 100 episodes)")
 plt.ylabel("Action Distribution")
 plt.title("Action Distribution Over Time")
 plt.legend(["Up", "Down", "Left", "Right"])
-plt.savefig("plots/action_distribution_ft2.png")
+plt.savefig("plots/action_distribution_cdqn.png")
 plt.close()
 
-model.save_model("__model_7k_end_ft.pth")
+model.save_model("cdqn_10k.pth")
 end_time = time.time()
 
-print(f"Training completed in {round(end_time - start_time, 2)} seconds. Model saved as '__model_7k_end.pth'. (steps taken: {steps})")
+print(f"Training completed in {round(end_time - start_time, 2)} seconds. Model saved as 'cdqn_10k.pth'. (steps taken: {steps})")
 print(f"Action distribution: Up: {actions[0]}, Down: {actions[1]}, Left: {actions[2]}, Right: {actions[3]}")
 
 
