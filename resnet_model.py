@@ -79,18 +79,18 @@ class ResNet(nn.Module):
 		
 
 
-class Model:
+class ResNetModel:
 	def __init__(self):
 		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-		self.memory = ReplayMemory(300000)
-		self.batch_size = 64
+		self.memory = ReplayMemory(400000)
+		self.batch_size = 128
 		self.gamma = 0.99
 		self.epsilon_start = 0.9
 		self.epsilon_end = 0.01
-		self.epsilon_decay = 300000
+		self.epsilon_decay = 1000000
 		self.policy_net = ResNet().to(self.device)
 		self.target_net = ResNet().to(self.device)
-		self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=0.0005)
+		self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=0.0001, weight_decay=0.0001)
 
 		self.steps_done = 0
 
@@ -163,7 +163,7 @@ class Model:
 
 		return loss.item()
 
-	def soft_update_target_net(self, tau=0.005):
+	def soft_update_target_net(self, tau=0.001):
 		target_net_state_dict = self.target_net.state_dict()
 		policy_net_state_dict = self.policy_net.state_dict()
 		for key in policy_net_state_dict:

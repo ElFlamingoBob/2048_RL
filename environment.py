@@ -1,5 +1,6 @@
 import gymnasium as gym
 from model import Model
+from resnet_model import ResNetModel
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,11 +9,12 @@ import time
 
 env = gym.make("gymnasium_2048:gymnasium_2048/TwentyFortyEight-v0", size=4, max_pow=16)  # Create the 2048 environment with specified parameters
 
-model = Model()
+# model = Model()
+model = ResNetModel()
 
 # model.load_model("10k_base.pth")
 
-episodes = 10000
+episodes = 5000
 
 loss_not_improving_count = 0
 last_loss = float('inf')
@@ -37,7 +39,25 @@ def max_in_corners(board):
 	else:
 		return -3
 
+def test_model(model, num_games=100):
+	model.policy_net.eval()
+	score_repartition = [0] * 17
 
+	for _ in range(num_games):
+		observation, info = env.reset()
+		terminated, truncated = False, False
+
+		while terminated is False and truncated is False:
+			state = torch.tensor(observation, dtype=torch.float32, device=model.device).permute(2, 0, 1).unsqueeze(0)
+			action = model.select_action(state, is_illegal_move(info["board"]), training=False)
+			observation, reward, terminated, truncated, info = env.step(action.item())
+
+		score = max([int(value) for row in info["board"] for value in row])
+		score_repartition[score] += 1
+	model.policy_net.train()
+
+	env.close()
+	[print(f"Score {2 ** (i)}: {score_repartition[i] / num_games * 100:.2f}%") for i in range(len(score_repartition)) if score_repartition[i] > 0]
 
 # 3 3 1 2 x
 # 2 1 0 0
@@ -77,12 +97,6 @@ def is_illegal_move(board):
 				actions[2] = 1
 			if j > 0 and ((board[i][j] == board[i][j-1] and board[i][j] != 0) or board[i][j] != 0 and board[i][j-1] == 0):
 				actions[3] = 1
-
-	# for row in board:
-	# 	print([int(value) for value in row])
-	# print(f"Legal Moves: {actions}")
-
-	# input("Press Enter to continue...")
 	return actions
 
 start_time = time.time()
@@ -97,7 +111,8 @@ for episode in range(episodes):
 	legal_moves = is_illegal_move(info["board"])
 
 	if episode % 1000 == 0 and episode > 0:
-		torch.save(model.policy_net.state_dict(), f"cdqn_{episode / 1000}.pth")
+		torch.save(model.policy_net.state_dict(), f"resnet_{episode / 1000}.pth")
+		test_model(model, num_games=100)
 
 	while True:
 		state = torch.tensor(observation, dtype=torch.float32, device=model.device).permute(2, 0, 1).unsqueeze(0)
@@ -172,21 +187,21 @@ plt.plot(losses)
 plt.xlabel("Episode")
 plt.ylabel("Loss")
 plt.title("Training Loss")
-plt.savefig("plots/training_loss_cdqn.png")
+plt.savefig("plots/training_loss_resnet.png")
 plt.close()
 
 plt.plot(rewards_means)
 plt.xlabel("Episode")
 plt.ylabel("Average Reward")
 plt.title("Average Reward per Episode")
-plt.savefig("plots/average_reward_cdqn.png")
+plt.savefig("plots/average_reward_resnet.png")
 plt.close()
 
 plt.plot(illegal_moves)
 plt.xlabel("Episode")
 plt.ylabel("Illegal Moves")
 plt.title("Illegal Moves per Episode")
-plt.savefig("plots/illegal_moves_cdqn.png")
+plt.savefig("plots/illegal_moves_resnet.png")
 plt.close()
 
 plt.plot(actions_in_time)
@@ -194,13 +209,13 @@ plt.xlabel("Episode (every 100 episodes)")
 plt.ylabel("Action Distribution")
 plt.title("Action Distribution Over Time")
 plt.legend(["Up", "Down", "Left", "Right"])
-plt.savefig("plots/action_distribution_cdqn.png")
+plt.savefig("plots/action_distribution_resnet.png")
 plt.close()
 
-model.save_model("cdqn_10k.pth")
+model.save_model("resnet_10k.pth")
 end_time = time.time()
 
-print(f"Training completed in {round(end_time - start_time, 2)} seconds. Model saved as 'cdqn_10k.pth'. (steps taken: {steps})")
+print(f"Training completed in {round(end_time - start_time, 2)} seconds. Model saved as 'resnet_10k.pth'. (steps taken: {steps})")
 print(f"Action distribution: Up: {actions[0]}, Down: {actions[1]}, Left: {actions[2]}, Right: {actions[3]}")
 
 

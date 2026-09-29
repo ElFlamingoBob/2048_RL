@@ -4,6 +4,7 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"
 
 import gymnasium as gym
 from model import Model
+from resnet_model import ResNetModel
 import torch
 
 
@@ -13,14 +14,16 @@ def main():
 	# env = gym.make("gymnasium_2048:gymnasium_2048/TwentyFortyEight-v0", size=4, max_pow=16, render_mode="human")  # Create the 2048 environment with specified parameters
 	env = gym.make("gymnasium_2048:gymnasium_2048/TwentyFortyEight-v0", size=4, max_pow=16)  # Create the 2048 environment with specified parameters
 
-	model = Model()
+	# model = Model()
+	model = ResNetModel()
 	# model.load_model("__model_7k_end_ft.pth")
 	# model.load_model("__model_10k_end_ft.pth")
-	model.load_model("cdqn_10k.pth")
+	# model.load_model("cdqn_10k.pth")
+	model.load_model("resnet_10k.pth")
 	max_score = 0
 
 	score_repartion = [0] * 17
-	number_of_games = 500
+	number_of_games = 100
 
 	for _ in range(number_of_games):
 
