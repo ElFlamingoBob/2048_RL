@@ -1,3 +1,6 @@
 .venv/
 __pychache__/
 plots/
+_*
+cdqn*
+model_*
